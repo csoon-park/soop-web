@@ -74,10 +74,6 @@
         <div class="stat-label">완료</div>
         <div class="stat-num green">{{ stats.done }}</div>
       </div>
-      <div class="stat-card">
-        <div class="stat-label">미션 수</div>
-        <div class="stat-num purple">{{ templates.length }}</div>
-      </div>
     </div>
 
     <!-- Mission Registration -->
@@ -773,7 +769,7 @@ body::before {
 .btn-icon:hover { color: var(--text); border-color: var(--accent); }
 
 /* Stats */
-.stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
+.stats-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px; }
 .stat-card { background: var(--card); border: 1px solid var(--card-border); border-radius: 12px; padding: 16px 20px; }
 .stat-label { font-size: 12px; color: var(--text-dim); margin-bottom: 4px; }
 .stat-num { font-size: 28px; font-weight: 800; }
@@ -992,7 +988,7 @@ body::before {
 .roulette-btns { display: flex; gap: 8px; justify-content: center; }
 
 @media (max-width: 768px) {
-  .stats-row { grid-template-columns: repeat(2, 1fr); }
+  .stats-row { grid-template-columns: repeat(3, 1fr); }
   .header { flex-wrap: wrap; }
   .connect-bar { width: 100%; }
   .template-form { flex-direction: column; align-items: stretch; }

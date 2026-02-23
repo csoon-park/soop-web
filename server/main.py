@@ -315,16 +315,18 @@ async def connect_streamer(request: Request, _=Depends(auth_guard)):
         else:
             state.add_log("채팅방 입장 실패", "error")
 
-    # 최근 별풍선 유저 추적 (채팅 메시지 연결용)
-    recent_balloon_users = {}  # {user_id: result_id}
+    # 최근 도네이션 유저 추적 (채팅 메시지 연결용 - 별풍/애드/미션 모두)
+    recent_donation_users = {}  # {user_id: {"result_id": ..., "time": ...}}
 
     def on_balloon(b: Balloon):
         result_id = _handle_donation("balloon", b.user.id, b.user.name, b.count, "", "")
         if result_id:
-            recent_balloon_users[b.user.id] = {"result_id": result_id, "time": time.time()}
+            recent_donation_users[b.user.id] = {"result_id": result_id, "time": time.time()}
 
     def on_adballoon(ab: Adballoon):
-        _handle_donation("adballoon", ab.user.id, ab.user.name, ab.count, "", "")
+        result_id = _handle_donation("adballoon", ab.user.id, ab.user.name, ab.count, "", "")
+        if result_id:
+            recent_donation_users[ab.user.id] = {"result_id": result_id, "time": time.time()}
 
     def on_subscription(sub: Subscription):
         state.add_log(f"구독: {sub.user.name} ({sub.count}개월)", "info")
@@ -335,13 +337,15 @@ async def connect_streamer(request: Request, _=Depends(auth_guard)):
         }})
 
     def on_mission(m: Mission):
-        _handle_donation("mission", m.user.id, m.user.name, m.count, m.title, "")
+        result_id = _handle_donation("mission", m.user.id, m.user.name, m.count, m.title, "")
+        if result_id:
+            recent_donation_users[m.user.id] = {"result_id": result_id, "time": time.time()}
 
     def on_chat(msg: ChatMessage):
-        # 별풍선 보낸 유저의 채팅이면 → 해당 별풍선 결과에 메시지 연결
+        # 도네이션(별풍/애드/미션) 보낸 유저의 채팅이면 → 해당 결과에 메시지 연결
         user_id = msg.user.id
-        if user_id in recent_balloon_users:
-            info = recent_balloon_users[user_id]
+        if user_id in recent_donation_users:
+            info = recent_donation_users[user_id]
             # 5초 이내의 채팅만 연결
             if time.time() - info["time"] < 5:
                 rid = info["result_id"]
@@ -351,7 +355,7 @@ async def connect_streamer(request: Request, _=Depends(auth_guard)):
                         state.broadcast({"event": "result_update", "data": r})
                         state.add_log(f"💬 {msg.user.name}: {msg.message}", "info")
                         break
-            del recent_balloon_users[user_id]
+            del recent_donation_users[user_id]
 
     def on_error(err):
         state.add_log(f"오류: {err}", "error")
