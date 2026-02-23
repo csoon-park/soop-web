@@ -193,6 +193,7 @@
             <div class="result-right">
               <span class="result-time">{{ r.time }}</span>
               <a class="btn-station" :href="'https://www.sooplive.co.kr/station/' + r.user_id" target="_blank" title="방송국 이동">방송국→</a>
+              <a class="btn-fan" :href="'https://st.sooplive.co.kr/app/gift_starballoon.php?szBjId=' + r.user_id + '&szWork=BJ_STATION&sys_type=web&location=station'" target="_blank" title="역팬하기">역팬★</a>
               <button :class="['btn-icon-sm', r.done ? 'done-btn' : 'check-btn']" @click="toggleResult(r.id)">
                 {{ r.done ? '↩' : '✓' }}
               </button>
@@ -873,6 +874,8 @@ body::before {
 .result-id:hover { color: var(--accent); }
 .btn-station { font-size: 11px; color: var(--accent); text-decoration: none; border: 1px solid var(--accent); padding: 3px 8px; border-radius: 5px; white-space: nowrap; transition: all 0.15s; }
 .btn-station:hover { background: rgba(108,92,231,0.15); color: #fff; }
+.btn-fan { font-size: 11px; color: var(--star); text-decoration: none; border: 1px solid var(--star); padding: 3px 8px; border-radius: 5px; white-space: nowrap; transition: all 0.15s; }
+.btn-fan:hover { background: rgba(255,211,42,0.15); color: #fff; }
 .result-match { font-size: 10px; background: var(--green); color: #000; padding: 1px 6px; border-radius: 4px; font-weight: 700; }
 .result-center { flex: 1; min-width: 0; }
 .memo-input { width: 100%; background: transparent; border: 1px solid transparent; border-radius: 6px; padding: 5px 8px; color: var(--text-dim); font-size: 12px; outline: none; }
