@@ -9,4 +9,5 @@ __pycache__/
 auth.db
 NUL
 *.png
+!frontend/public/favicon.png
 package-lock.json
