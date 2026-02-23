@@ -635,23 +635,47 @@ async def export_excel(request: Request, type_filter: str = "", template_filter:
     if template_filter:
         export_results = [r for r in export_results if r.get("matched_template") == template_filter]
 
-    wb = Workbook()
-    ws = wb.active
-    ws.title = "미션 현황"
-    ws.append(["유저ID", "닉네임", "개수", "타입", "매칭 미션", "메시지", "메모", "완료", "시간"])
+    headers_row = ["유저ID", "닉네임", "개수", "타입", "매칭 미션", "메시지", "메모", "완료", "시간"]
 
-    for r in export_results:
-        ws.append([
-            r["user_id"],
-            r["user_nickname"],
-            r["count"],
-            r["type"],
-            r.get("matched_template", ""),
-            r.get("message", ""),
-            r.get("memo", ""),
-            "완료" if r.get("done") else "진행중",
-            r.get("time", ""),
-        ])
+    def write_rows(ws, rows):
+        ws.append(headers_row)
+        for r in rows:
+            ws.append([
+                r["user_id"],
+                r["user_nickname"],
+                r["count"],
+                r["type"],
+                r.get("matched_template", ""),
+                r.get("message", ""),
+                r.get("memo", ""),
+                "완료" if r.get("done") else "진행중",
+                r.get("time", ""),
+            ])
+
+    wb = Workbook()
+
+    # 전체 시트
+    ws_all = wb.active
+    ws_all.title = "전체"
+    write_rows(ws_all, export_results)
+
+    # 미션별 시트
+    template_names = []
+    for t in state.templates:
+        template_names.append(t["name"])
+
+    for tname in template_names:
+        matched = [r for r in export_results if r.get("matched_template") == tname]
+        if matched:
+            safe_name = tname[:31]  # 엑셀 시트명 최대 31자
+            ws_t = wb.create_sheet(title=safe_name)
+            write_rows(ws_t, matched)
+
+    # 미매칭 (자동등록 등)
+    unmatched = [r for r in export_results if not r.get("matched_template")]
+    if unmatched:
+        ws_u = wb.create_sheet(title="미매칭")
+        write_rows(ws_u, unmatched)
 
     output = io.BytesIO()
     wb.save(output)

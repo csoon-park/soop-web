@@ -166,7 +166,7 @@
       </div>
 
       <div class="results-list">
-        <div v-for="r in filteredResults" :key="r.id" :class="['result-item-wrap', r.done && 'done', r.type]">
+        <div v-for="r in pagedResults" :key="r.id" :class="['result-item-wrap', r.done && 'done', r.type]">
           <div class="result-item">
             <div class="result-left">
               <span :class="['result-badge', r.type]">
@@ -207,6 +207,23 @@
         <div v-if="filteredResults.length === 0" class="empty-state">
           <p>{{ connected ? '이벤트 대기 중...' : '스트리머를 연결하세요' }}</p>
         </div>
+      </div>
+
+      <!-- Pagination -->
+      <div v-if="totalPages > 1" class="pagination">
+        <button class="page-btn" :disabled="currentPage <= 1" @click="currentPage = 1">«</button>
+        <button class="page-btn" :disabled="currentPage <= 1" @click="currentPage--">‹</button>
+        <template v-for="p in totalPages" :key="p">
+          <button
+            v-if="p === 1 || p === totalPages || (p >= currentPage - 2 && p <= currentPage + 2)"
+            :class="['page-btn', p === currentPage && 'active']"
+            @click="currentPage = p"
+          >{{ p }}</button>
+          <span v-else-if="p === currentPage - 3 || p === currentPage + 3" class="page-dots">…</span>
+        </template>
+        <button class="page-btn" :disabled="currentPage >= totalPages" @click="currentPage++">›</button>
+        <button class="page-btn" :disabled="currentPage >= totalPages" @click="currentPage = totalPages">»</button>
+        <span class="page-info">{{ filteredResults.length }}건 중 {{ (currentPage-1)*pageSize+1 }}~{{ Math.min(currentPage*pageSize, filteredResults.length) }}</span>
       </div>
     </section>
 
@@ -295,7 +312,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 
 const API = ''
 
@@ -386,6 +403,9 @@ const filterTab = ref('')
 const filterType = ref('')
 const filterTemplate = ref('')  // 미션 이름 필터
 
+const currentPage = ref(1)
+const pageSize = 20
+
 const filteredResults = computed(() => {
   let list = results.value
   if (filterTab.value === 'pending') list = list.filter(r => !r.done)
@@ -394,6 +414,15 @@ const filteredResults = computed(() => {
   if (filterTemplate.value) list = list.filter(r => r.matched_template === filterTemplate.value)
   return list
 })
+
+const totalPages = computed(() => Math.max(1, Math.ceil(filteredResults.value.length / pageSize)))
+const pagedResults = computed(() => {
+  const start = (currentPage.value - 1) * pageSize
+  return filteredResults.value.slice(start, start + pageSize)
+})
+
+// 필터 변경 시 페이지 리셋
+watch([filterTab, filterType, filterTemplate], () => { currentPage.value = 1 })
 
 const expandedMessages = ref(new Set())
 const newTmpl = ref({ name: '', count: 500, type: 'all', collect_message: true })
@@ -884,6 +913,15 @@ body::before {
 .result-right { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
 .result-time { font-size: 11px; color: var(--text-dim); white-space: nowrap; }
 .empty-state { text-align: center; padding: 48px 20px; color: var(--text-dim); font-size: 14px; }
+
+/* Pagination */
+.pagination { display: flex; align-items: center; justify-content: center; gap: 4px; margin-top: 16px; flex-wrap: wrap; }
+.page-btn { background: var(--surface); border: 1px solid var(--card-border); color: var(--text-dim); width: 32px; height: 32px; border-radius: 6px; font-size: 13px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
+.page-btn:hover:not(:disabled) { border-color: var(--accent); color: var(--text); }
+.page-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 700; }
+.page-btn:disabled { opacity: 0.3; cursor: default; }
+.page-dots { color: var(--text-dim); font-size: 13px; padding: 0 2px; }
+.page-info { font-size: 11px; color: var(--text-dim); margin-left: 8px; }
 
 /* Log Panel */
 .log-panel { position: fixed; top: 0; right: -380px; width: 380px; height: 100vh; background: var(--card); border-left: 1px solid var(--card-border); z-index: 100; transition: right 0.3s ease; display: flex; flex-direction: column; }
