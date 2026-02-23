@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "soopchat"
+version = "1.0.0"
+description = "SOOP 채팅 Python 클라이언트 (비공식) - 별풍선, 채팅, 구독 이벤트 실시간 수신"
+requires-python = ">=3.10"
+dependencies = [
+    "websockets>=12.0",
+    "requests>=2.31.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-asyncio>=0.23",
+]
