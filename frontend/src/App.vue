@@ -109,6 +109,7 @@
               autofocus
             />
           </div>
+          <button class="global-timer-btn reset" @click="resetGauge" title="게이지 초기화">↺</button>
         </div>
         <div class="global-gauge-right">
           <div class="global-timer-wrap">
@@ -534,10 +535,16 @@ const globalTimerRunning = ref(false)
 const globalTargetCount = ref(30000)
 const globalTargetEditing = ref(false)
 
-const totalMatched = computed(() => results.value.reduce((sum, r) => sum + (r.count || 0), 0))
+const gaugeOffset = ref(0)
+const totalMatchedRaw = computed(() => results.value.reduce((sum, r) => sum + (r.count || 0), 0))
+const totalMatched = computed(() => Math.max(0, totalMatchedRaw.value - gaugeOffset.value))
 const totalRemaining = computed(() => Math.max(0, globalTargetCount.value - totalMatched.value))
 const totalProgress = computed(() => globalTargetCount.value > 0 ? Math.min(100, (totalMatched.value / globalTargetCount.value) * 100) : 0)
 const totalCompleted = computed(() => globalTargetCount.value > 0 && totalMatched.value >= globalTargetCount.value)
+
+function resetGauge() {
+  gaugeOffset.value = totalMatchedRaw.value
+}
 
 const globalRemainingSeconds = computed(() => {
   if (!globalTimerStartedAt.value || !globalTimerRunning.value) return -1
