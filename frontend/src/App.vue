@@ -51,6 +51,9 @@
         </div>
       </div>
       <div class="header-right">
+        <button class="btn-icon sim-btn" @click="simulateResults" title="시뮬레이션">
+          <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+        </button>
         <button class="btn-icon" @click="showSettings = true" title="설정">
           <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 15a3 3 0 100-6 3 3 0 000 6z"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
         </button>
@@ -758,6 +761,56 @@ function exportExcel() {
 function typeLabel(t) { return { all: '전체', balloon: '별풍', adballoon: '애드', mission: '대결' }[t] || t }
 function typeIcon(t) { return { balloon: '★', adballoon: '◆', mission: '⚔' }[t] || '●' }
 
+// ─── 시뮬레이션 ───
+const fakeNames = ['별빛나는밤', '꿀벌대장', '하늘바라기', '불꽃소년', '달빛요정', '바다거북', '산들바람', '무지개빛', '햇살가득', '눈꽃여왕', '별똥별', '구름위의산책', '파도소리', '초록숲속', '보라빛하늘']
+let simIdCounter = 1000
+
+function simulateResults() {
+  if (templates.value.length === 0) {
+    showToast('먼저 미션을 등록하세요', 'warn')
+    return
+  }
+
+  const types = ['balloon', 'adballoon', 'mission']
+  const count = 5 + Math.floor(Math.random() * 6) // 5~10개 생성
+
+  for (let i = 0; i < count; i++) {
+    const tmpl = templates.value[Math.floor(Math.random() * templates.value.length)]
+    if (!tmpl.active) continue
+
+    const fakeType = tmpl.type === 'all' ? types[Math.floor(Math.random() * types.length)] : tmpl.type
+    const fakeName = fakeNames[Math.floor(Math.random() * fakeNames.length)]
+    const fakeId = 'sim_user_' + (simIdCounter++)
+    const now_time = new Date()
+    const timeStr = now_time.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })
+
+    const result = {
+      id: Date.now() + i,
+      type: fakeType,
+      user_id: fakeId,
+      user_nickname: fakeName,
+      count: tmpl.count,
+      title: '',
+      message: Math.random() > 0.5 ? '시뮬레이션 테스트 메시지입니다' : '',
+      memo: '',
+      done: false,
+      matched_template: tmpl.name,
+      time: timeStr,
+      timestamp: Date.now() / 1000,
+    }
+
+    results.value.unshift(result)
+  }
+
+  stats.value = {
+    total: results.value.length,
+    in_progress: results.value.filter(r => !r.done).length,
+    done: results.value.filter(r => r.done).length,
+  }
+
+  showToast(`시뮬레이션: ${count}건 생성됨`, 'ok')
+}
+
 const toast = ref(null)
 let toastTimer = null
 function showToast(msg, type = 'ok') {
@@ -873,6 +926,8 @@ body::before {
 .btn-disconnect { background: transparent; color: var(--red); border: 1px solid var(--red); padding: 7px 14px; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer; }
 .btn-icon { background: transparent; border: 1px solid var(--card-border); border-radius: 8px; padding: 6px 8px; color: var(--text-dim); cursor: pointer; }
 .btn-icon:hover { color: var(--text); border-color: var(--accent); }
+.btn-icon.sim-btn { border-color: var(--orange); color: var(--orange); }
+.btn-icon.sim-btn:hover { background: rgba(255,159,67,0.12); }
 
 /* Stats */
 .stats-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px; }
