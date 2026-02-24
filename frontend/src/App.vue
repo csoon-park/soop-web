@@ -815,7 +815,7 @@ function doSpin() {
   const winIdx = Math.floor(items.length * 0.7) + Math.floor(Math.random() * (items.length * 0.2))
   const targetOffset = winIdx * cellH - viewportCenter + cellH / 2
 
-  const totalDuration = 3900
+  const totalDuration = 4900
   const startTime = performance.now()
   let lastCellIdx = 0
 
