@@ -20,6 +20,8 @@ from fastapi.responses import StreamingResponse, JSONResponse, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from openpyxl import Workbook
+from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+from openpyxl.utils import get_column_letter
 
 import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
@@ -689,21 +691,75 @@ async def export_excel(request: Request, type_filter: str = "", template_filter:
         export_results = [r for r in export_results if r.get("matched_template") == template_filter]
 
     headers_row = ["유저ID", "닉네임", "개수", "타입", "매칭 미션", "메시지", "메모", "완료", "시간"]
+    col_widths = [18, 16, 10, 10, 14, 30, 20, 10, 14]
+
+    header_font = Font(bold=True, color="FFFFFF", size=11)
+    header_fill = PatternFill(start_color="6C5CE7", end_color="6C5CE7", fill_type="solid")
+    header_align = Alignment(horizontal="center", vertical="center")
+    thin_border = Border(
+        bottom=Side(style="thin", color="D0D0D0"),
+    )
+    center_align = Alignment(horizontal="center", vertical="center")
+    left_align = Alignment(horizontal="left", vertical="center", wrap_text=True)
+
+    type_labels = {"balloon": "별풍", "adballoon": "애드", "mission": "대결"}
+    done_fill = PatternFill(start_color="E8F8F0", end_color="E8F8F0", fill_type="solid")
+    done_font = Font(color="00B894", bold=True)
+    pending_font = Font(color="E17055")
 
     def write_rows(ws, rows):
+        # 헤더
         ws.append(headers_row)
-        for r in rows:
-            ws.append([
+        for col_idx in range(1, len(headers_row) + 1):
+            cell = ws.cell(row=1, column=col_idx)
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.alignment = header_align
+        ws.row_dimensions[1].height = 28
+
+        # 데이터
+        for row_idx, r in enumerate(rows, start=2):
+            is_done = r.get("done", False)
+            row_data = [
                 r.get("user_id", ""),
                 r.get("user_nickname", ""),
                 r.get("count", 0),
-                r.get("type", ""),
+                type_labels.get(r.get("type", ""), r.get("type", "")),
                 r.get("matched_template", ""),
                 r.get("message", ""),
                 r.get("memo", ""),
-                "완료" if r.get("done") else "진행중",
+                "완료" if is_done else "진행중",
                 r.get("time", ""),
-            ])
+            ]
+            ws.append(row_data)
+
+            for col_idx in range(1, len(row_data) + 1):
+                cell = ws.cell(row=row_idx, column=col_idx)
+                cell.border = thin_border
+                if col_idx in (1, 3, 4, 5, 8, 9):
+                    cell.alignment = center_align
+                else:
+                    cell.alignment = left_align
+
+            # 완료/진행중 스타일
+            status_cell = ws.cell(row=row_idx, column=8)
+            if is_done:
+                status_cell.font = done_font
+                for col_idx in range(1, len(row_data) + 1):
+                    ws.cell(row=row_idx, column=col_idx).fill = done_fill
+            else:
+                status_cell.font = pending_font
+
+        # 열 너비 자동 조정
+        for i, w in enumerate(col_widths, start=1):
+            ws.column_dimensions[get_column_letter(i)].width = w
+
+        # 필터 설정
+        if rows:
+            ws.auto_filter.ref = f"A1:{get_column_letter(len(headers_row))}{len(rows) + 1}"
+
+        # 첫 행 고정
+        ws.freeze_panes = "A2"
 
     wb = Workbook()
 
