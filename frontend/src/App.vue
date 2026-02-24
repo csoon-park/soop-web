@@ -721,7 +721,27 @@ function playTick(pitch = 800, vol = 0.08) {
   } catch {}
 }
 
+let spinAudio = null
+
+function playSpinSound() {
+  try {
+    stopSpinSound()
+    spinAudio = new Audio('/crack2.mp3')
+    spinAudio.volume = 0.7
+    spinAudio.play()
+  } catch {}
+}
+
+function stopSpinSound() {
+  if (spinAudio) {
+    spinAudio.pause()
+    spinAudio.currentTime = 0
+    spinAudio = null
+  }
+}
+
 function playWinSound() {
+  stopSpinSound()
   try {
     const audio = new Audio('/crack.mp3')
     audio.volume = 0.7
@@ -769,6 +789,7 @@ function startRoulette() {
 }
 
 function doSpin() {
+  playSpinSound()
   // 다시 뽑기: 아이템 새로 셔플
   const ids = [...new Set(filteredResults.value.map(r => r.user_id))]
   const nickMap = {}
@@ -837,6 +858,7 @@ function doSpin() {
 
 function closeRoulette() {
   if (rouletteAnim) cancelAnimationFrame(rouletteAnim)
+  stopSpinSound()
   roulette.value.show = false
 }
 
