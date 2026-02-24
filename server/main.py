@@ -31,11 +31,23 @@ from soopchat.api import ApiService
 
 # ─── 인증 시스템 (SQLite) ───
 
-DB_PATH = os.path.join(os.path.dirname(__file__), "auth.db")
+# Railway 볼륨 마운트 경로 우선, 없으면 로컬
+_data_dir = os.environ.get("DATA_DIR") or os.environ.get("RAILWAY_VOLUME_MOUNT_PATH")
+if _data_dir:
+    os.makedirs(_data_dir, exist_ok=True)
+    DB_PATH = os.path.join(_data_dir, "app.db")
+else:
+    DB_PATH = os.path.join(os.path.dirname(__file__), "auth.db")
+
+def get_db():
+    """DB 연결 반환"""
+    conn = get_db()
+    conn.row_factory = sqlite3.Row
+    return conn
 
 def init_db():
     """DB 초기화 및 기본 비밀번호 설정"""
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db()
     c = conn.cursor()
     c.execute("""
         CREATE TABLE IF NOT EXISTS auth (
@@ -49,6 +61,34 @@ def init_db():
             created_at REAL NOT NULL
         )
     """)
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS templates (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL DEFAULT '',
+            count INTEGER NOT NULL DEFAULT 0,
+            type TEXT NOT NULL DEFAULT 'all',
+            collect_message INTEGER NOT NULL DEFAULT 0,
+            duration INTEGER NOT NULL DEFAULT 0,
+            started_at REAL NOT NULL DEFAULT 0,
+            active INTEGER NOT NULL DEFAULT 1
+        )
+    """)
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS results (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            type TEXT NOT NULL DEFAULT '',
+            user_id TEXT NOT NULL DEFAULT '',
+            user_nickname TEXT NOT NULL DEFAULT '',
+            count INTEGER NOT NULL DEFAULT 0,
+            title TEXT NOT NULL DEFAULT '',
+            message TEXT NOT NULL DEFAULT '',
+            memo TEXT NOT NULL DEFAULT '',
+            done INTEGER NOT NULL DEFAULT 0,
+            matched_template TEXT NOT NULL DEFAULT '',
+            time TEXT NOT NULL DEFAULT '',
+            timestamp REAL NOT NULL DEFAULT 0
+        )
+    """)
     # 비밀번호가 없으면 기본값 설정
     c.execute("SELECT COUNT(*) FROM auth")
     if c.fetchone()[0] == 0:
@@ -57,10 +97,115 @@ def init_db():
     conn.commit()
     conn.close()
 
+# ─── 템플릿/결과 DB 헬퍼 ───
+
+def db_load_templates():
+    """DB에서 템플릿 목록 로드"""
+    conn = get_db()
+    rows = conn.execute("SELECT * FROM templates ORDER BY id").fetchall()
+    conn.close()
+    return [
+        {
+            "id": r["id"], "name": r["name"], "count": r["count"], "type": r["type"],
+            "collect_message": bool(r["collect_message"]), "duration": r["duration"],
+            "started_at": r["started_at"], "active": bool(r["active"]),
+        }
+        for r in rows
+    ]
+
+def db_save_template(tmpl: dict) -> int:
+    """템플릿 DB 저장, 새 id 반환"""
+    conn = get_db()
+    cur = conn.execute(
+        "INSERT INTO templates (name, count, type, collect_message, duration, started_at, active) VALUES (?,?,?,?,?,?,?)",
+        (tmpl["name"], tmpl["count"], tmpl["type"], int(tmpl.get("collect_message", False)),
+         tmpl.get("duration", 0), tmpl.get("started_at", 0), int(tmpl.get("active", True))),
+    )
+    conn.commit()
+    new_id = cur.lastrowid
+    conn.close()
+    return new_id
+
+def db_update_template(tmpl_id: int, updates: dict):
+    """템플릿 DB 업데이트"""
+    conn = get_db()
+    for key, val in updates.items():
+        if key == "id":
+            continue
+        if key in ("collect_message", "active"):
+            val = int(val)
+        conn.execute(f"UPDATE templates SET {key} = ? WHERE id = ?", (val, tmpl_id))
+    conn.commit()
+    conn.close()
+
+def db_delete_template(tmpl_id: int):
+    """템플릿 DB 삭제"""
+    conn = get_db()
+    conn.execute("DELETE FROM templates WHERE id = ?", (tmpl_id,))
+    conn.commit()
+    conn.close()
+
+def db_load_results():
+    """DB에서 결과 목록 로드"""
+    conn = get_db()
+    rows = conn.execute("SELECT * FROM results ORDER BY id DESC").fetchall()
+    conn.close()
+    return [
+        {
+            "id": r["id"], "type": r["type"], "user_id": r["user_id"],
+            "user_nickname": r["user_nickname"], "count": r["count"],
+            "title": r["title"], "message": r["message"], "memo": r["memo"],
+            "done": bool(r["done"]), "matched_template": r["matched_template"],
+            "time": r["time"], "timestamp": r["timestamp"],
+        }
+        for r in rows
+    ]
+
+def db_save_result(result: dict) -> int:
+    """결과 DB 저장, 새 id 반환"""
+    conn = get_db()
+    cur = conn.execute(
+        "INSERT INTO results (type, user_id, user_nickname, count, title, message, memo, done, matched_template, time, timestamp) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+        (result["type"], result["user_id"], result["user_nickname"], result["count"],
+         result["title"], result["message"], result["memo"], int(result.get("done", False)),
+         result["matched_template"], result["time"], result["timestamp"]),
+    )
+    conn.commit()
+    new_id = cur.lastrowid
+    conn.close()
+    return new_id
+
+def db_update_result(rid: int, updates: dict):
+    """결과 DB 업데이트"""
+    conn = get_db()
+    for key, val in updates.items():
+        if key == "id":
+            continue
+        if key == "done":
+            val = int(val)
+        conn.execute(f"UPDATE results SET {key} = ? WHERE id = ?", (val, rid))
+    conn.commit()
+    conn.close()
+
+def db_delete_result(rid: int):
+    """결과 DB 삭제"""
+    conn = get_db()
+    conn.execute("DELETE FROM results WHERE id = ?", (rid,))
+    conn.commit()
+    conn.close()
+
+def db_clear_results():
+    """결과 DB 전체 삭제"""
+    conn = get_db()
+    conn.execute("DELETE FROM results")
+    conn.commit()
+    conn.close()
+
+
 def verify_password(password: str) -> bool:
     """비밀번호 검증"""
     pw_hash = hashlib.sha256(password.encode()).hexdigest()
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db()
     c = conn.cursor()
     c.execute("SELECT password_hash FROM auth WHERE id = 1")
     row = c.fetchone()
@@ -70,7 +215,7 @@ def verify_password(password: str) -> bool:
 def change_password(new_password: str):
     """비밀번호 변경"""
     new_hash = hashlib.sha256(new_password.encode()).hexdigest()
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db()
     c = conn.cursor()
     c.execute("UPDATE auth SET password_hash = ? WHERE id = 1", (new_hash,))
     conn.commit()
@@ -79,7 +224,7 @@ def change_password(new_password: str):
 def create_session() -> str:
     """세션 토큰 생성"""
     token = secrets.token_hex(32)
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db()
     c = conn.cursor()
     # 오래된 세션 정리 (24시간)
     c.execute("DELETE FROM sessions WHERE created_at < ?", (time.time() - 86400,))
@@ -92,7 +237,7 @@ def validate_session(token: str) -> bool:
     """세션 토큰 검증"""
     if not token:
         return False
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db()
     c = conn.cursor()
     c.execute("SELECT created_at FROM sessions WHERE token = ?", (token,))
     row = c.fetchone()
@@ -104,7 +249,7 @@ def validate_session(token: str) -> bool:
 
 def delete_session(token: str):
     """세션 삭제"""
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db()
     c = conn.cursor()
     c.execute("DELETE FROM sessions WHERE token = ?", (token,))
     conn.commit()
@@ -135,8 +280,8 @@ class AppState:
         self.client: Optional[SoopChat] = None
         self.connected = False
         self.streamer_id = ""
-        self.results: list[dict] = []          # 미션 결과 목록
-        self.templates: list[dict] = []        # 미션 템플릿
+        self.results: list[dict] = db_load_results()       # DB에서 로드
+        self.templates: list[dict] = db_load_templates()    # DB에서 로드
         self.auto_threshold = 0                # 자동등록 임계값
         self.logs: list[dict] = []             # 실시간 로그 (최대 200개)
         self.sse_queues: list[asyncio.Queue] = []  # SSE 구독자
@@ -354,6 +499,7 @@ async def connect_streamer(request: Request, _=Depends(auth_guard)):
                 for r in state.results:
                     if r["id"] == rid and not r.get("message"):
                         r["message"] = msg.message
+                        db_update_result(rid, {"message": msg.message})
                         state.broadcast({"event": "result_update", "data": r})
                         state.add_log(f"💬 {msg.user.name}: {msg.message}", "info")
                         break
@@ -460,9 +606,7 @@ def _handle_donation(dtype: str, user_id: str, user_name: str, count: int, title
     state.add_log(log_msg, dtype)
 
     # 결과 추가
-    result_id = len(state.results) + 1
     result = {
-        "id": result_id,
         "type": dtype,
         "user_id": user_id,
         "user_nickname": user_name,
@@ -498,6 +642,8 @@ def _handle_donation(dtype: str, user_id: str, user_name: str, count: int, title
     if not matched:
         return None
 
+    result_id = db_save_result(result)
+    result["id"] = result_id
     state.results.insert(0, result)
     state.broadcast({"event": "result", "data": result})
     state.broadcast({"event": "stats", "data": state.get_stats()})
@@ -530,7 +676,6 @@ async def get_templates(request: Request, _=Depends(auth_guard)):
 async def add_template(request: Request, _=Depends(auth_guard)):
     body = await request.json()
     tmpl = {
-        "id": len(state.templates) + 1,
         "name": body.get("name", ""),
         "count": body.get("count", 0),
         "type": body.get("type", "all"),        # all, balloon, adballoon, mission
@@ -539,6 +684,7 @@ async def add_template(request: Request, _=Depends(auth_guard)):
         "started_at": time.time(),               # 등록 시각 (타이머 기준)
         "active": True,
     }
+    tmpl["id"] = db_save_template(tmpl)
     state.templates.append(tmpl)
     state.broadcast({"event": "templates", "data": state.templates})
     state.add_log(f"미션 등록: {tmpl['name']} ({tmpl['count']}개)", "success")
@@ -552,6 +698,7 @@ async def update_template(request: Request, _=Depends(auth_guard)):
     for tmpl in state.templates:
         if tmpl["id"] == tmpl_id:
             tmpl.update({k: v for k, v in body.items() if k != "id"})
+            db_update_template(tmpl_id, {k: v for k, v in body.items() if k != "id"})
             break
     state.broadcast({"event": "templates", "data": state.templates})
     return {"ok": True}
@@ -562,6 +709,7 @@ async def delete_template(request: Request, _=Depends(auth_guard)):
     body = await request.json()
     tmpl_id = body.get("id")
     state.templates = [t for t in state.templates if t["id"] != tmpl_id]
+    db_delete_template(tmpl_id)
     state.broadcast({"event": "templates", "data": state.templates})
     return {"ok": True}
 
@@ -580,6 +728,7 @@ async def toggle_result(request: Request, _=Depends(auth_guard)):
     for r in state.results:
         if r["id"] == rid:
             r["done"] = not r["done"]
+            db_update_result(rid, {"done": r["done"]})
             state.broadcast({"event": "result_update", "data": r})
             break
     state.broadcast({"event": "stats", "data": state.get_stats()})
@@ -594,6 +743,7 @@ async def update_memo(request: Request, _=Depends(auth_guard)):
     for r in state.results:
         if r["id"] == rid:
             r["memo"] = memo
+            db_update_result(rid, {"memo": memo})
             state.broadcast({"event": "result_update", "data": r})
             break
     return {"ok": True}
@@ -604,6 +754,7 @@ async def delete_result(request: Request, _=Depends(auth_guard)):
     body = await request.json()
     rid = body.get("id")
     state.results = [r for r in state.results if r["id"] != rid]
+    db_delete_result(rid)
     state.broadcast({"event": "results", "data": state.results})
     state.broadcast({"event": "stats", "data": state.get_stats()})
     return {"ok": True}
@@ -612,6 +763,7 @@ async def delete_result(request: Request, _=Depends(auth_guard)):
 @app.post("/api/results/clear")
 async def clear_results(request: Request, _=Depends(auth_guard)):
     state.results = []
+    db_clear_results()
     state.broadcast({"event": "results", "data": state.results})
     state.broadcast({"event": "stats", "data": state.get_stats()})
     state.add_log("결과 초기화됨", "warn")
@@ -657,7 +809,6 @@ async def simulate(request: Request, _=Depends(auth_guard)):
         fake_id = f"sim_user_{_sim_counter}"
 
         result = {
-            "id": str(int(time.time() * 1000)) + str(i),
             "type": fake_type,
             "user_id": fake_id,
             "user_nickname": fake_name,
@@ -670,6 +821,7 @@ async def simulate(request: Request, _=Depends(auth_guard)):
             "time": datetime.now().strftime("%p %I:%M:%S"),
             "timestamp": time.time(),
         }
+        result["id"] = db_save_result(result)
 
         state.results.insert(0, result)
         state.broadcast({"event": "result", "data": result})
