@@ -197,10 +197,6 @@
             <button :class="['type-btn mission', newTmpl.type === 'mission' && 'active']" @click="newTmpl.type='mission'">대결</button>
           </div>
         </div>
-        <div class="form-group">
-          <label>제한시간 (분)</label>
-          <input type="number" v-model.number="newTmpl.duration" class="input-sm num-input" min="0" placeholder="0=무제한" />
-        </div>
         <div class="form-group chk-group">
           <label class="chk"><input type="checkbox" v-model="newTmpl.collect_message" /> 메시지 수집</label>
         </div>
@@ -529,7 +525,7 @@ const globalTimerRunning = ref(false)
 const globalTargetCount = ref(100)
 const globalTargetEditing = ref(false)
 
-const totalMatched = computed(() => results.value.length)
+const totalMatched = computed(() => results.value.reduce((sum, r) => sum + (r.count || 0), 0))
 const totalRemaining = computed(() => Math.max(0, globalTargetCount.value - totalMatched.value))
 const totalProgress = computed(() => globalTargetCount.value > 0 ? Math.min(100, (totalMatched.value / globalTargetCount.value) * 100) : 0)
 const totalCompleted = computed(() => globalTargetCount.value > 0 && totalMatched.value >= globalTargetCount.value)
