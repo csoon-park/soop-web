@@ -197,10 +197,6 @@
             <button :class="['type-btn mission', newTmpl.type === 'mission' && 'active']" @click="newTmpl.type='mission'">대결</button>
           </div>
         </div>
-        <div class="form-group">
-          <label>제한시간 (분)</label>
-          <input type="number" v-model.number="newTmpl.duration" class="input-sm num-input" min="0" placeholder="0=무제한" />
-        </div>
         <div class="form-group chk-group">
           <label class="chk"><input type="checkbox" v-model="newTmpl.collect_message" /> 메시지 수집</label>
         </div>
@@ -529,7 +525,7 @@ const globalTimerRunning = ref(false)
 const globalTargetCount = ref(100)
 const globalTargetEditing = ref(false)
 
-const totalMatched = computed(() => results.value.length)
+const totalMatched = computed(() => results.value.reduce((sum, r) => sum + (r.count || 0), 0))
 const totalRemaining = computed(() => Math.max(0, globalTargetCount.value - totalMatched.value))
 const totalProgress = computed(() => globalTargetCount.value > 0 ? Math.min(100, (totalMatched.value / globalTargetCount.value) * 100) : 0)
 const totalCompleted = computed(() => globalTargetCount.value > 0 && totalMatched.value >= globalTargetCount.value)
@@ -844,11 +840,25 @@ function closeRoulette() {
 }
 
 function copyText(text) { navigator.clipboard.writeText(text); showToast(`${text} 복사됨`, 'ok') }
-function exportExcel() {
-  const params = new URLSearchParams()
-  if (filterType.value) params.set('type_filter', filterType.value)
-  if (filterTemplate.value) params.set('template_filter', filterTemplate.value)
-  window.open(`${API}/api/export-excel?${params.toString()}`, '_blank')
+async function exportExcel() {
+  try {
+    const resp = await fetch(`${API}/api/export-excel`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ results: filteredResults.value }),
+      credentials: 'include',
+    })
+    if (!resp.ok) { showToast('엑셀 내보내기 실패', 'err'); return }
+    const blob = await resp.blob()
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    const cd = resp.headers.get('Content-Disposition') || ''
+    const match = cd.match(/filename=(.+)/)
+    a.download = match ? match[1] : 'mission_export.xlsx'
+    a.click()
+    URL.revokeObjectURL(url)
+  } catch { showToast('엑셀 내보내기 실패', 'err') }
 }
 
 function typeLabel(t) { return { all: '전체', balloon: '별풍', adballoon: '애드', mission: '대결' }[t] || t }

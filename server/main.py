@@ -629,13 +629,10 @@ async def update_config(request: Request, _=Depends(auth_guard)):
 
 # ─── 내보내기 ───
 
-@app.get("/api/export-excel")
-async def export_excel(request: Request, type_filter: str = "", template_filter: str = "", _=Depends(auth_guard)):
-    export_results = state.results
-    if type_filter:
-        export_results = [r for r in export_results if r.get("type") == type_filter]
-    if template_filter:
-        export_results = [r for r in export_results if r.get("matched_template") == template_filter]
+@app.post("/api/export-excel")
+async def export_excel(request: Request, _=Depends(auth_guard)):
+    body = await request.json()
+    export_results = body.get("results", state.results)
 
     headers_row = ["유저ID", "닉네임", "개수", "타입", "매칭 미션", "메시지", "메모", "완료", "시간"]
 
@@ -643,10 +640,10 @@ async def export_excel(request: Request, type_filter: str = "", template_filter:
         ws.append(headers_row)
         for r in rows:
             ws.append([
-                r["user_id"],
-                r["user_nickname"],
-                r["count"],
-                r["type"],
+                r.get("user_id", ""),
+                r.get("user_nickname", ""),
+                r.get("count", 0),
+                r.get("type", ""),
                 r.get("matched_template", ""),
                 r.get("message", ""),
                 r.get("memo", ""),
@@ -662,18 +659,18 @@ async def export_excel(request: Request, type_filter: str = "", template_filter:
     write_rows(ws_all, export_results)
 
     # 미션별 시트
-    template_names = []
-    for t in state.templates:
-        template_names.append(t["name"])
+    template_names = list(dict.fromkeys(
+        r.get("matched_template", "") for r in export_results if r.get("matched_template")
+    ))
 
     for tname in template_names:
         matched = [r for r in export_results if r.get("matched_template") == tname]
         if matched:
-            safe_name = tname[:31]  # 엑셀 시트명 최대 31자
+            safe_name = tname[:31]
             ws_t = wb.create_sheet(title=safe_name)
             write_rows(ws_t, matched)
 
-    # 미매칭 (자동등록 등)
+    # 미매칭
     unmatched = [r for r in export_results if not r.get("matched_template")]
     if unmatched:
         ws_u = wb.create_sheet(title="미매칭")
