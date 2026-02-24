@@ -203,6 +203,12 @@
         <button class="btn-add" @click="addTemplate" :disabled="!newTmpl.name || !newTmpl.count">+ 등록</button>
       </div>
 
+      <div class="notice-box">
+        <p>• 소원권은 현금이나 상품 등 금전적·물질적 제공은 어려운 점 양해 부탁드립니다.</p>
+        <p>• 요청 내용은 상식적인 범위와 실행 가능한 선에서 진행됩니다.</p>
+        <p>• 일정은 서로의 상황을 고려하여 최대한 조율해보겠습니다.</p>
+      </div>
+
       <!-- Template list -->
       <div class="template-list" v-if="templates.length">
         <div v-for="t in templates" :key="t.id"
@@ -1025,6 +1031,8 @@ body::before {
 
 /* Template Form */
 .template-form { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+.notice-box { background: rgba(255,255,255,0.03); border: 1px solid var(--card-border); border-radius: 10px; padding: 12px 16px; margin-bottom: 16px; }
+.notice-box p { margin: 0; padding: 2px 0; font-size: 12px; color: var(--text-dim); line-height: 1.6; }
 .form-group { display: flex; flex-direction: column; gap: 4px; }
 .form-group label { font-size: 11px; color: var(--text-dim); font-weight: 500; }
 .input-sm { background: var(--surface); border: 1px solid var(--card-border); border-radius: 8px; padding: 7px 10px; color: var(--text); font-size: 13px; outline: none; }
