@@ -840,11 +840,25 @@ function closeRoulette() {
 }
 
 function copyText(text) { navigator.clipboard.writeText(text); showToast(`${text} 복사됨`, 'ok') }
-function exportExcel() {
-  const params = new URLSearchParams()
-  if (filterType.value) params.set('type_filter', filterType.value)
-  if (filterTemplate.value) params.set('template_filter', filterTemplate.value)
-  window.open(`${API}/api/export-excel?${params.toString()}`, '_blank')
+async function exportExcel() {
+  try {
+    const resp = await fetch(`${API}/api/export-excel`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ results: filteredResults.value }),
+      credentials: 'include',
+    })
+    if (!resp.ok) { showToast('엑셀 내보내기 실패', 'err'); return }
+    const blob = await resp.blob()
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    const cd = resp.headers.get('Content-Disposition') || ''
+    const match = cd.match(/filename=(.+)/)
+    a.download = match ? match[1] : 'mission_export.xlsx'
+    a.click()
+    URL.revokeObjectURL(url)
+  } catch { showToast('엑셀 내보내기 실패', 'err') }
 }
 
 function typeLabel(t) { return { all: '전체', balloon: '별풍', adballoon: '애드', mission: '대결' }[t] || t }
