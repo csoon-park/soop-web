@@ -79,6 +79,73 @@
       </div>
     </div>
 
+    <!-- Global Gauge & Countdown -->
+    <section v-if="templates.length > 0" class="global-gauge-card">
+      <div class="global-gauge-top">
+        <div class="global-gauge-left">
+          <div class="global-remaining-wrap">
+            <span class="global-icon">🔥</span>
+            <span :class="['global-remaining-num', totalRemaining <= 10 && totalRemaining > 0 && 'urgent', totalCompleted && 'done']">
+              {{ totalCompleted ? '달성!' : totalRemaining }}
+            </span>
+            <span v-if="!totalCompleted" class="global-remaining-label">개 남음</span>
+          </div>
+          <div class="global-sub">
+            {{ totalMatched }}<span class="global-sub-dim"> / {{ totalTarget }}</span>
+          </div>
+        </div>
+        <div class="global-gauge-right">
+          <div class="global-timer-wrap">
+            <span class="global-icon">⏱</span>
+            <template v-if="globalTimerRunning && globalRemainingSeconds >= 0">
+              <span :class="['global-timer-num', globalRemainingSeconds <= 60 && 'critical', globalRemainingSeconds > 60 && globalRemainingSeconds <= 180 && 'warning']">
+                {{ formatCountdown(globalRemainingSeconds) }}
+              </span>
+              <button class="global-timer-btn stop" @click="stopGlobalTimer" title="타이머 정지">■</button>
+              <button class="global-timer-btn reset" @click="resetGlobalTimer" title="타이머 리셋">↺</button>
+            </template>
+            <template v-else-if="globalTimerRunning && globalRemainingSeconds === 0">
+              <span class="global-timer-expired">시간 종료!</span>
+              <button class="global-timer-btn reset" @click="resetGlobalTimer">↺</button>
+            </template>
+            <template v-else>
+              <div class="global-timer-set">
+                <input
+                  type="number"
+                  v-model.number="globalTimerMinutes"
+                  class="global-timer-input"
+                  min="1"
+                  max="999"
+                  @keyup.enter="startGlobalTimer"
+                />
+                <span class="global-timer-unit">분</span>
+              </div>
+              <button class="global-timer-btn start" @click="startGlobalTimer" :disabled="!globalTimerMinutes || globalTimerMinutes <= 0">▶</button>
+            </template>
+          </div>
+        </div>
+      </div>
+      <div class="global-gauge-bar-wrap">
+        <div class="global-gauge-bar">
+          <div
+            class="global-gauge-fill"
+            :style="{ width: totalProgress + '%' }"
+            :class="{ full: totalCompleted }"
+          ></div>
+        </div>
+        <span class="global-gauge-pct">{{ Math.round(totalProgress) }}%</span>
+      </div>
+      <div v-if="globalTimerRunning && globalRemainingSeconds >= 0" class="global-timer-bar-wrap">
+        <div class="global-timer-bar">
+          <div
+            class="global-timer-fill"
+            :style="{ width: (globalRemainingSeconds / (globalTimerMinutes * 60) * 100) + '%' }"
+            :class="{ warning: globalRemainingSeconds <= 180 && globalRemainingSeconds > 60, critical: globalRemainingSeconds <= 60 }"
+          ></div>
+        </div>
+      </div>
+    </section>
+
     <!-- Mission Registration -->
     <section class="card">
       <div class="card-header">
@@ -463,6 +530,41 @@ const expandedMessages = ref(new Set())
 const newTmpl = ref({ name: '', count: 500, type: 'all', collect_message: true, duration: 0 })
 const now = ref(Date.now())
 let nowTimer = null
+
+// ─── Global Gauge & Countdown ───
+const globalTimerMinutes = ref(30)
+const globalTimerStartedAt = ref(null)
+const globalTimerRunning = ref(false)
+const globalTimerEditing = ref(false)
+
+const totalTarget = computed(() => templates.value.filter(t => t.active).reduce((sum, t) => sum + t.count, 0))
+const totalMatched = computed(() => templates.value.filter(t => t.active).reduce((sum, t) => sum + templateMatchedCount(t.name), 0))
+const totalRemaining = computed(() => Math.max(0, totalTarget.value - totalMatched.value))
+const totalProgress = computed(() => totalTarget.value > 0 ? Math.min(100, (totalMatched.value / totalTarget.value) * 100) : 0)
+const totalCompleted = computed(() => totalTarget.value > 0 && totalMatched.value >= totalTarget.value)
+
+const globalRemainingSeconds = computed(() => {
+  if (!globalTimerStartedAt.value || !globalTimerRunning.value) return -1
+  const elapsed = (now.value / 1000) - globalTimerStartedAt.value
+  return Math.max(0, (globalTimerMinutes.value * 60) - elapsed)
+})
+
+function startGlobalTimer() {
+  globalTimerStartedAt.value = Date.now() / 1000
+  globalTimerRunning.value = true
+  globalTimerEditing.value = false
+}
+
+function stopGlobalTimer() {
+  globalTimerRunning.value = false
+  globalTimerStartedAt.value = null
+}
+
+function resetGlobalTimer() {
+  globalTimerRunning.value = false
+  globalTimerStartedAt.value = null
+  globalTimerEditing.value = false
+}
 
 // SSE
 let eventSource = null
@@ -1160,6 +1262,124 @@ body::before {
 @keyframes nameGlow { from { text-shadow: 0 0 10px rgba(108,92,231,0.3); } to { text-shadow: 0 0 30px rgba(108,92,231,0.7), 0 0 60px rgba(108,92,231,0.2); } }
 .roulette-winner-id { font-size: 14px; color: var(--accent); font-family: monospace; margin-top: 8px; font-weight: 600; }
 .roulette-btns { display: flex; gap: 8px; justify-content: center; }
+
+/* ─── Global Gauge & Countdown ─── */
+.global-gauge-card {
+  background: linear-gradient(135deg, var(--card) 0%, rgba(108,92,231,0.08) 100%);
+  border: 1px solid var(--accent);
+  border-radius: 16px;
+  padding: 20px 24px 16px;
+  margin-bottom: 20px;
+  box-shadow: 0 0 24px rgba(108,92,231,0.08);
+}
+.global-gauge-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+.global-gauge-left { display: flex; align-items: baseline; gap: 12px; }
+.global-remaining-wrap { display: flex; align-items: baseline; gap: 6px; }
+.global-icon { font-size: 20px; }
+.global-remaining-num {
+  font-size: 36px;
+  font-weight: 900;
+  color: var(--orange);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  animation: remainPulse 2s ease infinite;
+}
+.global-remaining-num.urgent { color: var(--red); animation: remainPulse 1s ease infinite; }
+.global-remaining-num.done { color: var(--green); animation: none; font-size: 28px; }
+.global-remaining-label { font-size: 16px; font-weight: 700; color: var(--text-dim); }
+.global-sub { font-size: 13px; color: var(--text-dim); font-weight: 600; font-variant-numeric: tabular-nums; }
+.global-sub-dim { color: #555; }
+
+.global-gauge-right { display: flex; align-items: center; }
+.global-timer-wrap { display: flex; align-items: center; gap: 8px; }
+.global-timer-num {
+  font-size: 32px;
+  font-weight: 900;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  padding: 4px 12px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 10px;
+}
+.global-timer-num.warning { color: var(--orange); background: rgba(255,159,67,0.12); }
+.global-timer-num.critical { color: var(--red); background: rgba(255,107,107,0.15); animation: countdownBlink 1s ease infinite; }
+.global-timer-expired {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--red);
+  background: rgba(255,107,107,0.15);
+  padding: 4px 14px;
+  border-radius: 10px;
+  animation: countdownBlink 1s ease infinite;
+}
+.global-timer-set { display: flex; align-items: center; gap: 4px; }
+.global-timer-input {
+  width: 64px;
+  background: var(--surface);
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  padding: 6px 8px;
+  color: var(--text);
+  font-size: 18px;
+  font-weight: 700;
+  text-align: center;
+  outline: none;
+  font-variant-numeric: tabular-nums;
+}
+.global-timer-input:focus { border-color: var(--accent); }
+.global-timer-unit { font-size: 14px; color: var(--text-dim); font-weight: 600; }
+.global-timer-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid var(--card-border);
+  background: var(--surface);
+  color: var(--text-dim);
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+}
+.global-timer-btn.start { border-color: var(--green); color: var(--green); }
+.global-timer-btn.start:hover { background: rgba(0,210,160,0.15); }
+.global-timer-btn.start:disabled { opacity: 0.3; cursor: default; }
+.global-timer-btn.stop { border-color: var(--red); color: var(--red); }
+.global-timer-btn.stop:hover { background: rgba(255,107,107,0.15); }
+.global-timer-btn.reset { border-color: var(--text-dim); color: var(--text-dim); }
+.global-timer-btn.reset:hover { border-color: var(--accent); color: var(--accent); }
+
+.global-gauge-bar-wrap { display: flex; align-items: center; gap: 10px; }
+.global-gauge-bar { flex: 1; height: 10px; background: rgba(255,255,255,0.06); border-radius: 5px; overflow: hidden; }
+.global-gauge-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), var(--purple));
+  border-radius: 5px;
+  transition: width 0.5s ease;
+}
+.global-gauge-fill.full { background: linear-gradient(90deg, var(--green), #00e6b0); }
+.global-gauge-pct { font-size: 13px; font-weight: 800; color: var(--text-dim); min-width: 36px; text-align: right; font-variant-numeric: tabular-nums; }
+
+.global-timer-bar-wrap { margin-top: 8px; }
+.global-timer-bar { height: 4px; background: rgba(255,255,255,0.06); border-radius: 2px; overflow: hidden; }
+.global-timer-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 2px;
+  transition: width 1s linear;
+}
+.global-timer-fill.warning { background: var(--orange); }
+.global-timer-fill.critical { background: var(--red); }
 
 /* Gauge */
 .tmpl-gauge-row { display: flex; align-items: center; gap: 10px; }
