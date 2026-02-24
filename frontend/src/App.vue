@@ -522,7 +522,7 @@ let nowTimer = null
 const globalTimerMinutes = ref(30)
 const globalTimerStartedAt = ref(null)
 const globalTimerRunning = ref(false)
-const globalTargetCount = ref(100)
+const globalTargetCount = ref(30000)
 const globalTargetEditing = ref(false)
 
 const totalMatched = computed(() => results.value.reduce((sum, r) => sum + (r.count || 0), 0))
