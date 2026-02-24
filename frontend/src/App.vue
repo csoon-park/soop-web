@@ -720,20 +720,9 @@ function playTick(pitch = 800, vol = 0.08) {
 
 function playWinSound() {
   try {
-    const ctx = getAudioCtx()
-    const notes = [523, 659, 784, 1047]  // C5 E5 G5 C6
-    notes.forEach((freq, i) => {
-      const osc = ctx.createOscillator()
-      const gain = ctx.createGain()
-      osc.type = 'triangle'
-      osc.frequency.value = freq
-      gain.gain.value = 0.15
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15 * i + 0.4)
-      osc.connect(gain)
-      gain.connect(ctx.destination)
-      osc.start(ctx.currentTime + 0.1 * i)
-      osc.stop(ctx.currentTime + 0.1 * i + 0.4)
-    })
+    const audio = new Audio('/crack.mp3')
+    audio.volume = 0.7
+    audio.play()
   } catch {}
 }
 
