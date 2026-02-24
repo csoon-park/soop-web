@@ -770,6 +770,7 @@ function openRoulette() {
   }
 
   roulette.value = { show: true, items, done: false, winner: null, winnerIdx: -1, phase: 'countdown' }
+  playSpinSound()
   setTimeout(() => {
     roulette.value.phase = 'spinning'
     nextTick(() => doSpin())
@@ -782,6 +783,7 @@ function startRoulette() {
   roulette.value.winner = null
   roulette.value.winnerIdx = -1
   roulette.value.phase = 'countdown'
+  playSpinSound()
   setTimeout(() => {
     roulette.value.phase = 'spinning'
     nextTick(() => doSpin())
@@ -789,7 +791,6 @@ function startRoulette() {
 }
 
 function doSpin() {
-  playSpinSound()
   // 다시 뽑기: 아이템 새로 셔플
   const ids = [...new Set(filteredResults.value.map(r => r.user_id))]
   const nickMap = {}
