@@ -676,10 +676,10 @@ async function saveConfig() {
 }
 
 async function copyNicknames() {
-  const nicknames = [...new Set(filteredResults.value.map(r => r.user_nickname))]
+  const nicknames = filteredResults.value.map(r => r.user_nickname)
   if (nicknames.length === 0) { showToast('복사할 닉네임이 없습니다', 'warn'); return }
   navigator.clipboard.writeText(nicknames.join(','))
-  showToast(`${nicknames.length}명 닉네임 복사됨`, 'ok')
+  showToast(`${nicknames.length}개 닉네임 복사됨 (중복 포함)`, 'ok')
 }
 
 function toggleMessage(id) {
@@ -755,17 +755,14 @@ const roulette = ref({ show: false, items: [], done: false, winner: null, winner
 let rouletteAnim = null
 
 function openRoulette() {
-  const ids = [...new Set(filteredResults.value.map(r => r.user_id))]
-  if (ids.length < 2) { showToast('최소 2명 이상 필요합니다', 'warn'); return }
+  const pool = filteredResults.value.map(r => ({ id: r.user_id, nickname: r.user_nickname }))
+  const uniqueUsers = new Set(pool.map(p => p.id))
+  if (uniqueUsers.size < 2) { showToast('최소 2명 이상 필요합니다', 'warn'); return }
 
-  const nickMap = {}
-  filteredResults.value.forEach(r => { if (!nickMap[r.user_id]) nickMap[r.user_id] = r.user_nickname })
-
-  const uniqueItems = ids.map(id => ({ id, nickname: nickMap[id] || id }))
-  const REPEAT = Math.max(10, Math.ceil(60 / uniqueItems.length))
+  const REPEAT = Math.max(10, Math.ceil(60 / pool.length))
   const items = []
   for (let i = 0; i < REPEAT; i++) {
-    const shuffled = [...uniqueItems].sort(() => Math.random() - 0.5)
+    const shuffled = [...pool].sort(() => Math.random() - 0.5)
     items.push(...shuffled)
   }
 
@@ -791,15 +788,12 @@ function startRoulette() {
 }
 
 function doSpin() {
-  // 다시 뽑기: 아이템 새로 셔플
-  const ids = [...new Set(filteredResults.value.map(r => r.user_id))]
-  const nickMap = {}
-  filteredResults.value.forEach(r => { if (!nickMap[r.user_id]) nickMap[r.user_id] = r.user_nickname })
-  const uniqueItems = ids.map(id => ({ id, nickname: nickMap[id] || id }))
-  const REPEAT = Math.max(10, Math.ceil(60 / uniqueItems.length))
+  // 다시 뽑기: 아이템 새로 셔플 (중복 허용 - 많이 쏜 사람 확률 높음)
+  const pool = filteredResults.value.map(r => ({ id: r.user_id, nickname: r.user_nickname }))
+  const REPEAT = Math.max(10, Math.ceil(60 / pool.length))
   const newItems = []
   for (let i = 0; i < REPEAT; i++) {
-    const shuffled = [...uniqueItems].sort(() => Math.random() - 0.5)
+    const shuffled = [...pool].sort(() => Math.random() - 0.5)
     newItems.push(...shuffled)
   }
   roulette.value.items = newItems
