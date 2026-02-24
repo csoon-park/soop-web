@@ -348,6 +348,9 @@
               </div>
             </div>
           </div>
+          <div v-if="roulette.phase === 'countdown'" class="roulette-countdown">
+            <span class="countdown-text">도전!</span>
+          </div>
           <div v-if="roulette.done" class="roulette-result">
             <div class="roulette-confetti">🎉🎊✨🎊🎉</div>
             <div class="roulette-winner-label">WINNER</div>
@@ -746,8 +749,11 @@ function openRoulette() {
     items.push(...shuffled)
   }
 
-  roulette.value = { show: true, items, done: false, winner: null, winnerIdx: -1, phase: 'idle' }
-  nextTick(() => startRoulette())
+  roulette.value = { show: true, items, done: false, winner: null, winnerIdx: -1, phase: 'countdown' }
+  setTimeout(() => {
+    roulette.value.phase = 'spinning'
+    nextTick(() => doSpin())
+  }, 1200)
 }
 
 function startRoulette() {
@@ -755,8 +761,14 @@ function startRoulette() {
   roulette.value.done = false
   roulette.value.winner = null
   roulette.value.winnerIdx = -1
-  roulette.value.phase = 'spinning'
+  roulette.value.phase = 'countdown'
+  setTimeout(() => {
+    roulette.value.phase = 'spinning'
+    nextTick(() => doSpin())
+  }, 1200)
+}
 
+function doSpin() {
   // 다시 뽑기: 아이템 새로 셔플
   const ids = [...new Set(filteredResults.value.map(r => r.user_id))]
   const nickMap = {}
@@ -1170,6 +1182,17 @@ body::before {
 }
 .roulette-nick { font-size: 16px; font-weight: 700; color: var(--text); }
 .roulette-uid { font-size: 11px; color: var(--text-dim); font-family: monospace; }
+
+/* Countdown */
+.roulette-countdown { display: flex; align-items: center; justify-content: center; padding: 24px 0; }
+.countdown-text { font-size: 48px; font-weight: 900; color: var(--orange); letter-spacing: 6px; text-shadow: 0 0 30px rgba(255,159,67,0.5); animation: countdownPop 1.2s ease forwards; }
+@keyframes countdownPop {
+  0% { transform: scale(0); opacity: 0; }
+  30% { transform: scale(1.4); opacity: 1; }
+  50% { transform: scale(1); }
+  80% { transform: scale(1.1); opacity: 1; }
+  100% { transform: scale(1); opacity: 0; }
+}
 
 /* Tension dots */
 .roulette-tension { padding: 10px 0; font-size: 24px; color: var(--orange); letter-spacing: 8px; font-weight: 900; }
