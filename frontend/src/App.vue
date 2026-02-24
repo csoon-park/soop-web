@@ -111,6 +111,10 @@
             <button :class="['type-btn mission', newTmpl.type === 'mission' && 'active']" @click="newTmpl.type='mission'">대결</button>
           </div>
         </div>
+        <div class="form-group">
+          <label>제한시간 (분)</label>
+          <input type="number" v-model.number="newTmpl.duration" class="input-sm num-input" min="0" placeholder="0=무제한" />
+        </div>
         <div class="form-group chk-group">
           <label class="chk"><input type="checkbox" v-model="newTmpl.collect_message" /> 메시지 수집</label>
         </div>
@@ -120,22 +124,50 @@
       <!-- Template list -->
       <div class="template-list" v-if="templates.length">
         <div v-for="t in templates" :key="t.id"
-          :class="['template-item', !t.active && 'paused', filterTemplate === t.name && 'selected']"
+          :class="['template-item', !t.active && 'paused', filterTemplate === t.name && 'selected', templateCompleted(t) && 'completed']"
           @click="toggleFilterTemplate(t.name)"
           style="cursor: pointer;"
         >
-          <div class="tmpl-info">
-            <span class="tmpl-name">{{ t.name }}</span>
-            <span class="tmpl-count">{{ t.count }}개</span>
-            <span :class="['tmpl-type', t.type]">{{ typeLabel(t.type) }}</span>
-            <span v-if="t.collect_message" class="tmpl-opt">메시지</span>
-            <span class="tmpl-result-count">{{ templateResultCount(t.name) }}건</span>
+          <div class="tmpl-top-row">
+            <div class="tmpl-info">
+              <span class="tmpl-name">{{ t.name }}</span>
+              <span class="tmpl-count">{{ t.count }}개</span>
+              <span :class="['tmpl-type', t.type]">{{ typeLabel(t.type) }}</span>
+              <span v-if="t.collect_message" class="tmpl-opt">메시지</span>
+              <span v-if="t.duration > 0" class="tmpl-opt timer-opt">{{ t.duration }}분</span>
+            </div>
+            <div class="tmpl-actions" @click.stop>
+              <button class="btn-icon-sm" @click="toggleTemplate(t)" :title="t.active ? '일시정지' : '활성화'">
+                {{ t.active ? '⏸' : '▶' }}
+              </button>
+              <button class="btn-icon-sm del" @click="deleteTemplate(t.id)">✕</button>
+            </div>
           </div>
-          <div class="tmpl-actions" @click.stop>
-            <button class="btn-icon-sm" @click="toggleTemplate(t)" :title="t.active ? '일시정지' : '활성화'">
-              {{ t.active ? '⏸' : '▶' }}
-            </button>
-            <button class="btn-icon-sm del" @click="deleteTemplate(t.id)">✕</button>
+
+          <!-- Gauge + Countdown -->
+          <div class="tmpl-gauge-row">
+            <div class="tmpl-gauge-bar">
+              <div
+                class="tmpl-gauge-fill"
+                :style="{ width: templateProgress(t) + '%' }"
+                :class="{ full: templateCompleted(t) }"
+              ></div>
+            </div>
+            <div class="tmpl-gauge-info">
+              <span class="tmpl-matched">{{ templateMatchedCount(t.name) }}/{{ t.count }}</span>
+              <span v-if="!templateCompleted(t)" :class="['tmpl-remaining', templateRemaining(t) <= 10 && 'urgent']">
+                {{ templateRemaining(t) }}개 남음
+              </span>
+              <span v-else class="tmpl-complete-badge">달성!</span>
+            </div>
+            <div v-if="t.duration > 0 && t.started_at" class="tmpl-countdown" @click.stop>
+              <template v-if="templateRemainingSeconds(t) > 0">
+                <span :class="['countdown-time', templateRemainingSeconds(t) <= 60 && 'critical', templateRemainingSeconds(t) <= 180 && templateRemainingSeconds(t) > 60 && 'warning']">
+                  {{ formatCountdown(templateRemainingSeconds(t)) }}
+                </span>
+              </template>
+              <span v-else class="countdown-expired">시간 종료</span>
+            </div>
           </div>
         </div>
       </div>
@@ -425,7 +457,9 @@ const pagedResults = computed(() => {
 watch([filterTab, filterType, filterTemplate], () => { currentPage.value = 1 })
 
 const expandedMessages = ref(new Set())
-const newTmpl = ref({ name: '', count: 500, type: 'all', collect_message: true })
+const newTmpl = ref({ name: '', count: 500, type: 'all', collect_message: true, duration: 0 })
+const now = ref(Date.now())
+let nowTimer = null
 
 // SSE
 let eventSource = null
@@ -489,7 +523,7 @@ async function addTemplate() {
     body: JSON.stringify(newTmpl.value),
     credentials: 'include',
   })
-  newTmpl.value = { name: '', count: 500, type: 'all', collect_message: true }
+  newTmpl.value = { name: '', count: 500, type: 'all', collect_message: true, duration: 0 }
 }
 
 async function toggleTemplate(t) {
@@ -732,11 +766,53 @@ function showToast(msg, type = 'ok') {
   toastTimer = setTimeout(() => { toast.value = null }, 2500)
 }
 
+// 템플릿별 매칭된 결과 수
+function templateMatchedCount(name) {
+  return results.value.filter(r => r.matched_template === name).length
+}
+
+// 템플릿별 남은 수치
+function templateRemaining(t) {
+  return Math.max(0, t.count - templateMatchedCount(t.name))
+}
+
+// 템플릿별 진행률 (0~100)
+function templateProgress(t) {
+  if (t.count <= 0) return 0
+  return Math.min(100, (templateMatchedCount(t.name) / t.count) * 100)
+}
+
+// 카운트다운: 남은 시간 (초)
+function templateRemainingSeconds(t) {
+  if (!t.duration || t.duration <= 0) return -1  // 무제한
+  const elapsed = (now.value / 1000) - t.started_at
+  const remaining = (t.duration * 60) - elapsed
+  return Math.max(0, remaining)
+}
+
+// 초를 MM:SS 포맷으로
+function formatCountdown(secs) {
+  if (secs < 0) return ''
+  const m = Math.floor(secs / 60)
+  const s = Math.floor(secs % 60)
+  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+}
+
+// 미션 완료 여부 (목표 달성)
+function templateCompleted(t) {
+  return templateMatchedCount(t.name) >= t.count
+}
+
 onMounted(async () => {
   await checkAuth()
   if (authenticated.value) connectSSE()
+  // 1초마다 now 갱신 (카운트다운용)
+  nowTimer = setInterval(() => { now.value = Date.now() }, 1000)
 })
-onUnmounted(() => { if (eventSource) eventSource.close() })
+onUnmounted(() => {
+  if (eventSource) eventSource.close()
+  if (nowTimer) clearInterval(nowTimer)
+})
 </script>
 
 <style>
@@ -841,7 +917,9 @@ body::before {
 
 /* Templates */
 .template-list { display: flex; flex-direction: column; gap: 6px; }
-.template-item { display: flex; justify-content: space-between; align-items: center; background: var(--surface); border: 1px solid var(--card-border); border-radius: 8px; padding: 10px 14px; }
+.template-item { display: flex; flex-direction: column; gap: 8px; background: var(--surface); border: 1px solid var(--card-border); border-radius: 8px; padding: 10px 14px; }
+.template-item.completed { border-color: var(--green); background: rgba(0,210,160,0.05); }
+.tmpl-top-row { display: flex; justify-content: space-between; align-items: center; }
 .template-item.paused { opacity: 0.4; }
 .tmpl-info { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .tmpl-name { font-weight: 600; font-size: 14px; }
@@ -1027,6 +1105,27 @@ body::before {
 @keyframes nameGlow { from { text-shadow: 0 0 10px rgba(108,92,231,0.3); } to { text-shadow: 0 0 30px rgba(108,92,231,0.7), 0 0 60px rgba(108,92,231,0.2); } }
 .roulette-winner-id { font-size: 14px; color: var(--accent); font-family: monospace; margin-top: 8px; font-weight: 600; }
 .roulette-btns { display: flex; gap: 8px; justify-content: center; }
+
+/* Gauge */
+.tmpl-gauge-row { display: flex; align-items: center; gap: 10px; }
+.tmpl-gauge-bar { flex: 1; height: 6px; background: rgba(255,255,255,0.06); border-radius: 3px; overflow: hidden; min-width: 80px; }
+.tmpl-gauge-fill { height: 100%; background: var(--accent); border-radius: 3px; transition: width 0.4s ease; }
+.tmpl-gauge-fill.full { background: var(--green); }
+.tmpl-gauge-info { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.tmpl-matched { font-size: 12px; color: var(--text-dim); font-weight: 600; font-variant-numeric: tabular-nums; }
+.tmpl-remaining { font-size: 13px; font-weight: 800; color: var(--orange); animation: remainPulse 2s ease infinite; }
+.tmpl-remaining.urgent { color: var(--red); animation: remainPulse 1s ease infinite; }
+@keyframes remainPulse { 0%,100% { opacity: 1; } 50% { opacity: 0.6; } }
+.tmpl-complete-badge { font-size: 12px; font-weight: 800; color: var(--green); background: rgba(0,210,160,0.15); padding: 2px 10px; border-radius: 6px; }
+.timer-opt { background: rgba(162,155,254,0.15); color: var(--purple); }
+
+/* Countdown */
+.tmpl-countdown { flex-shrink: 0; }
+.countdown-time { font-size: 14px; font-weight: 800; font-family: 'SF Mono', 'Fira Code', monospace; color: var(--text); padding: 3px 10px; border-radius: 6px; background: rgba(255,255,255,0.06); font-variant-numeric: tabular-nums; }
+.countdown-time.warning { color: var(--orange); background: rgba(255,159,67,0.12); }
+.countdown-time.critical { color: var(--red); background: rgba(255,107,107,0.15); animation: countdownBlink 1s ease infinite; }
+@keyframes countdownBlink { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
+.countdown-expired { font-size: 12px; font-weight: 700; color: var(--red); background: rgba(255,107,107,0.12); padding: 3px 10px; border-radius: 6px; }
 
 @media (max-width: 768px) {
   .stats-row { grid-template-columns: repeat(3, 1fr); }
