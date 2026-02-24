@@ -41,7 +41,7 @@ else:
 
 def get_db():
     """DB 연결 반환"""
-    conn = get_db()
+    conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     return conn
 
