@@ -533,6 +533,8 @@ async def add_template(request: Request, _=Depends(auth_guard)):
         "count": body.get("count", 0),
         "type": body.get("type", "all"),        # all, balloon, adballoon, mission
         "collect_message": body.get("collect_message", False),
+        "duration": body.get("duration", 0),    # 제한 시간 (분), 0이면 무제한
+        "started_at": time.time(),               # 등록 시각 (타이머 기준)
         "active": True,
     }
     state.templates.append(tmpl)
