@@ -840,78 +840,30 @@ function closeRoulette() {
 }
 
 function copyText(text) { navigator.clipboard.writeText(text); showToast(`${text} 복사됨`, 'ok') }
-async function exportExcel() {
-  try {
-    const resp = await fetch(`${API}/api/export-excel`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ results: filteredResults.value }),
-      credentials: 'include',
-    })
-    if (!resp.ok) { showToast('엑셀 내보내기 실패', 'err'); return }
-    const blob = await resp.blob()
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    const cd = resp.headers.get('Content-Disposition') || ''
-    const match = cd.match(/filename=(.+)/)
-    a.download = match ? match[1] : 'mission_export.xlsx'
-    a.click()
-    URL.revokeObjectURL(url)
-  } catch { showToast('엑셀 내보내기 실패', 'err') }
+function exportExcel() {
+  const params = new URLSearchParams()
+  if (filterType.value) params.set('type_filter', filterType.value)
+  if (filterTemplate.value) params.set('template_filter', filterTemplate.value)
+  window.open(`${API}/api/export-excel?${params.toString()}`, '_blank')
 }
 
 function typeLabel(t) { return { all: '전체', balloon: '별풍', adballoon: '애드', mission: '대결' }[t] || t }
 function typeIcon(t) { return { balloon: '★', adballoon: '◆', mission: '⚔' }[t] || '●' }
 
 // ─── 시뮬레이션 ───
-const fakeNames = ['별빛나는밤', '꿀벌대장', '하늘바라기', '불꽃소년', '달빛요정', '바다거북', '산들바람', '무지개빛', '햇살가득', '눈꽃여왕', '별똥별', '구름위의산책', '파도소리', '초록숲속', '보라빛하늘']
-let simIdCounter = 1000
-
-function simulateResults() {
-  if (templates.value.length === 0) {
-    showToast('먼저 미션을 등록하세요', 'warn')
-    return
-  }
-
-  const types = ['balloon', 'adballoon', 'mission']
-  const count = 5 + Math.floor(Math.random() * 6) // 5~10개 생성
-
-  for (let i = 0; i < count; i++) {
-    const tmpl = templates.value[Math.floor(Math.random() * templates.value.length)]
-    if (!tmpl.active) continue
-
-    const fakeType = tmpl.type === 'all' ? types[Math.floor(Math.random() * types.length)] : tmpl.type
-    const fakeName = fakeNames[Math.floor(Math.random() * fakeNames.length)]
-    const fakeId = 'sim_user_' + (simIdCounter++)
-    const now_time = new Date()
-    const timeStr = now_time.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })
-
-    const result = {
-      id: Date.now() + i,
-      type: fakeType,
-      user_id: fakeId,
-      user_nickname: fakeName,
-      count: tmpl.count,
-      title: '',
-      message: Math.random() > 0.5 ? '시뮬레이션 테스트 메시지입니다' : '',
-      memo: '',
-      done: false,
-      matched_template: tmpl.name,
-      time: timeStr,
-      timestamp: Date.now() / 1000,
+async function simulateResults() {
+  try {
+    const resp = await fetch(`${API}/api/simulate`, {
+      method: 'POST',
+      credentials: 'include',
+    })
+    const data = await resp.json()
+    if (data.ok) {
+      showToast(`시뮬레이션: ${data.count}건 생성됨`, 'ok')
+    } else {
+      showToast(data.error || '시뮬레이션 실패', 'warn')
     }
-
-    results.value.unshift(result)
-  }
-
-  stats.value = {
-    total: results.value.length,
-    in_progress: results.value.filter(r => !r.done).length,
-    done: results.value.filter(r => r.done).length,
-  }
-
-  showToast(`시뮬레이션: ${count}건 생성됨`, 'ok')
+  } catch { showToast('서버 연결 실패', 'err') }
 }
 
 const toast = ref(null)

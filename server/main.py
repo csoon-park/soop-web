@@ -627,12 +627,66 @@ async def update_config(request: Request, _=Depends(auth_guard)):
     return {"ok": True}
 
 
+# ─── 시뮬레이션 ───
+
+import random
+
+FAKE_NAMES = ['별빛나는밤', '꿀벌대장', '하늘바라기', '불꽃소년', '달빛요정', '바다거북', '산들바람', '무지개빛', '햇살가득', '눈꽃여왕', '별똥별', '구름위의산책', '파도소리', '초록숲속', '보라빛하늘']
+_sim_counter = 1000
+
+@app.post("/api/simulate")
+async def simulate(request: Request, _=Depends(auth_guard)):
+    global _sim_counter
+    if not state.templates:
+        return {"ok": False, "error": "먼저 미션을 등록하세요"}
+
+    types = ['balloon', 'adballoon', 'mission']
+    count = 5 + random.randint(0, 5)
+    created = 0
+
+    for i in range(count):
+        tmpl = random.choice(state.templates)
+        if not tmpl.get("active", True):
+            continue
+
+        fake_type = random.choice(types) if tmpl.get("type") == "all" else tmpl.get("type")
+        fake_name = random.choice(FAKE_NAMES)
+        _sim_counter += 1
+        fake_id = f"sim_user_{_sim_counter}"
+
+        result = {
+            "id": str(int(time.time() * 1000)) + str(i),
+            "type": fake_type,
+            "user_id": fake_id,
+            "user_nickname": fake_name,
+            "count": tmpl.get("count", 500),
+            "title": "",
+            "message": "시뮬레이션 테스트 메시지입니다" if random.random() > 0.5 else "",
+            "memo": "",
+            "done": False,
+            "matched_template": tmpl.get("name", ""),
+            "time": datetime.now().strftime("%p %I:%M:%S"),
+            "timestamp": time.time(),
+        }
+
+        state.results.insert(0, result)
+        state.broadcast({"event": "result", "data": result})
+        created += 1
+
+    state.broadcast({"event": "stats", "data": state.get_stats()})
+    state.add_log(f"시뮬레이션: {created}건 생성됨", "warn")
+    return {"ok": True, "count": created}
+
+
 # ─── 내보내기 ───
 
-@app.post("/api/export-excel")
-async def export_excel(request: Request, _=Depends(auth_guard)):
-    body = await request.json()
-    export_results = body.get("results", state.results)
+@app.get("/api/export-excel")
+async def export_excel(request: Request, type_filter: str = "", template_filter: str = "", _=Depends(auth_guard)):
+    export_results = state.results
+    if type_filter:
+        export_results = [r for r in export_results if r.get("type") == type_filter]
+    if template_filter:
+        export_results = [r for r in export_results if r.get("matched_template") == template_filter]
 
     headers_row = ["유저ID", "닉네임", "개수", "타입", "매칭 미션", "메시지", "메모", "완료", "시간"]
 
