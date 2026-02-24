@@ -11,7 +11,7 @@ import io
 import hashlib
 import secrets
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from typing import Optional
 from contextlib import asynccontextmanager
 
@@ -290,7 +290,7 @@ class AppState:
 
     def add_log(self, msg: str, log_type: str = "info"):
         entry = {
-            "time": datetime.now().strftime("%p %I:%M:%S"),
+            "time": datetime.now(timezone(timedelta(hours=9))).strftime("%p %I:%M:%S"),
             "message": msg,
             "type": log_type,
         }
@@ -616,7 +616,7 @@ def _handle_donation(dtype: str, user_id: str, user_name: str, count: int, title
         "memo": "",
         "done": False,
         "matched_template": "",
-        "time": datetime.now().strftime("%p %I:%M:%S"),
+        "time": datetime.now(timezone(timedelta(hours=9))).strftime("%p %I:%M:%S"),
         "timestamp": time.time(),
     }
 
@@ -818,7 +818,7 @@ async def simulate(request: Request, _=Depends(auth_guard)):
             "memo": "",
             "done": False,
             "matched_template": tmpl.get("name", ""),
-            "time": datetime.now().strftime("%p %I:%M:%S"),
+            "time": datetime.now(timezone(timedelta(hours=9))).strftime("%p %I:%M:%S"),
             "timestamp": time.time(),
         }
         result["id"] = db_save_result(result)
@@ -945,7 +945,7 @@ async def export_excel(request: Request, type_filter: str = "", template_filter:
     return Response(
         content=output.getvalue(),
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": f"attachment; filename=mission_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"},
+        headers={"Content-Disposition": f"attachment; filename=mission_{datetime.now(timezone(timedelta(hours=9))).strftime('%Y%m%d_%H%M%S')}.xlsx"},
     )
 
 
