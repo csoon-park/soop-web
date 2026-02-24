@@ -81,7 +81,7 @@
           <button class="btn btn-sm" @click="loadRecords">조회</button>
         </div>
         <div class="actions">
-          <button class="btn btn-sm" @click="copyUserIds">유저ID 복사 (,구분)</button>
+          <button class="btn btn-sm" @click="copyUserNicknames">닉네임 복사 (,구분)</button>
           <button class="btn btn-sm" @click="exportExcel('records')">기록 엑셀</button>
           <button class="btn btn-sm" @click="exportExcel('summary')">요약 엑셀</button>
         </div>
@@ -105,8 +105,8 @@
           </thead>
           <tbody>
             <tr v-for="s in summary" :key="s.user_id">
-              <td class="copyable" @click="copyText(s.user_id)">{{ s.user_id }}</td>
-              <td>{{ s.user_nickname }}</td>
+              <td>{{ s.user_id }}</td>
+              <td class="copyable" @click="copyText(s.user_nickname)">{{ s.user_nickname }}</td>
               <td class="num">{{ s.total_count.toLocaleString() }}</td>
               <td>
                 <span class="tag" v-if="getTag(s.total_count)">{{ getTag(s.total_count) }}</span>
@@ -136,8 +136,8 @@
           </thead>
           <tbody>
             <tr v-for="rec in records" :key="rec.id">
-              <td class="copyable" @click="copyText(rec.user_id)">{{ rec.user_id }}</td>
-              <td>{{ rec.user_nickname }}</td>
+              <td>{{ rec.user_id }}</td>
+              <td class="copyable" @click="copyText(rec.user_nickname)">{{ rec.user_nickname }}</td>
               <td class="num">{{ rec.count }}</td>
               <td>
                 <span class="tag" v-if="rec.tag">{{ rec.tag }}</span>
@@ -369,11 +369,11 @@ async function updateMemo(recordId, memo) {
   }
 }
 
-// Copy user IDs
-function copyUserIds() {
-  const ids = summary.value.map(s => s.user_id).join(', ')
-  navigator.clipboard.writeText(ids)
-  showToast('유저ID 복사됨!', 'ok')
+// Copy user nicknames
+function copyUserNicknames() {
+  const nicknames = summary.value.map(s => s.user_nickname).join(',')
+  navigator.clipboard.writeText(nicknames)
+  showToast('닉네임 복사됨!', 'ok')
 }
 
 function copyText(text) {

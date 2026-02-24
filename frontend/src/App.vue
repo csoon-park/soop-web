@@ -246,7 +246,7 @@
             <button :class="['tab type-tab adballoon', filterType === 'adballoon' && 'active']" @click="filterType='adballoon'">애드벌룬</button>
           </div>
           <div class="export-btns">
-            <button class="btn-sm btn-outline" @click="copyIds">ID복사</button>
+            <button class="btn-sm btn-outline" @click="copyNicknames">닉네임복사</button>
             <button class="btn-sm btn-outline roulette-btn" @click="openRoulette">🎰 1명 뽑기</button>
             <button class="btn-sm btn-outline" @click="exportExcel">엑셀</button>
             <button class="btn-sm btn-danger" @click="clearResults">초기화</button>
@@ -262,7 +262,7 @@
                 {{ typeIcon(r.type) }}{{ r.count }} {{ r.matched_template || '' }}
               </span>
               <div class="result-user-info">
-                <span class="result-nickname copyable" @click="copyText(r.user_id)">{{ r.user_nickname }}</span>
+                <span class="result-nickname copyable" @click="copyText(r.user_nickname)">{{ r.user_nickname }}</span>
                 <span class="result-id copyable" @click="copyText(r.user_id)">{{ r.user_id }}</span>
               </div>
               <span v-if="r.matched_template" class="result-match">매칭</span>
@@ -358,7 +358,7 @@
             <span class="tension-dot">.</span><span class="tension-dot d2">.</span><span class="tension-dot d3">.</span>
           </div>
           <div class="roulette-btns">
-            <button v-if="roulette.done" class="btn-sm btn-accent" @click="copyText(roulette.winner?.id); showToast('당첨자 ID 복사됨', 'ok')">ID 복사</button>
+            <button v-if="roulette.done" class="btn-sm btn-accent" @click="copyText(roulette.winner?.nickname); showToast('당첨자 닉네임 복사됨', 'ok')">닉네임 복사</button>
             <button v-if="roulette.done" class="btn-sm btn-outline" @click="startRoulette">다시 뽑기</button>
             <button class="btn-sm btn-muted" @click="closeRoulette">닫기</button>
           </div>
@@ -672,11 +672,11 @@ async function saveConfig() {
   showToast(`자동등록: ${autoThreshold.value > 0 ? autoThreshold.value + '개' : '끔'}`, 'ok')
 }
 
-async function copyIds() {
-  const ids = [...new Set(filteredResults.value.map(r => r.user_id))]
-  if (ids.length === 0) { showToast('복사할 ID가 없습니다', 'warn'); return }
-  navigator.clipboard.writeText(ids.join(','))
-  showToast(`${ids.length}명 ID 복사됨`, 'ok')
+async function copyNicknames() {
+  const nicknames = [...new Set(filteredResults.value.map(r => r.user_nickname))]
+  if (nicknames.length === 0) { showToast('복사할 닉네임이 없습니다', 'warn'); return }
+  navigator.clipboard.writeText(nicknames.join(','))
+  showToast(`${nicknames.length}명 닉네임 복사됨`, 'ok')
 }
 
 function toggleMessage(id) {
