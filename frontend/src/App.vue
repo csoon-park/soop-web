@@ -214,30 +214,9 @@
             </div>
           </div>
 
-          <!-- Gauge + Countdown -->
-          <div class="tmpl-gauge-row">
-            <div class="tmpl-gauge-bar">
-              <div
-                class="tmpl-gauge-fill"
-                :style="{ width: templateProgress(t) + '%' }"
-                :class="{ full: templateCompleted(t) }"
-              ></div>
-            </div>
-            <div class="tmpl-gauge-info">
-              <span class="tmpl-matched">{{ templateMatchedCount(t.name) }}/{{ t.count }}</span>
-              <span v-if="!templateCompleted(t)" :class="['tmpl-remaining', templateRemaining(t) <= 10 && 'urgent']">
-                {{ templateRemaining(t) }}개 남음
-              </span>
-              <span v-else class="tmpl-complete-badge">달성!</span>
-            </div>
-            <div v-if="t.duration > 0 && t.started_at" class="tmpl-countdown" @click.stop>
-              <template v-if="templateRemainingSeconds(t) > 0">
-                <span :class="['countdown-time', templateRemainingSeconds(t) <= 60 && 'critical', templateRemainingSeconds(t) <= 180 && templateRemainingSeconds(t) > 60 && 'warning']">
-                  {{ formatCountdown(templateRemainingSeconds(t)) }}
-                </span>
-              </template>
-              <span v-else class="countdown-expired">시간 종료</span>
-            </div>
+          <div class="tmpl-matched-row">
+            <span class="tmpl-matched">{{ templateMatchedCount(t.name) }}/{{ t.count }}</span>
+            <span v-if="templateCompleted(t)" class="tmpl-complete-badge">달성!</span>
           </div>
         </div>
       </div>
@@ -1381,26 +1360,13 @@ body::before {
 .global-timer-fill.warning { background: var(--orange); }
 .global-timer-fill.critical { background: var(--red); }
 
-/* Gauge */
-.tmpl-gauge-row { display: flex; align-items: center; gap: 10px; }
-.tmpl-gauge-bar { flex: 1; height: 6px; background: rgba(255,255,255,0.06); border-radius: 3px; overflow: hidden; min-width: 80px; }
-.tmpl-gauge-fill { height: 100%; background: var(--accent); border-radius: 3px; transition: width 0.4s ease; }
-.tmpl-gauge-fill.full { background: var(--green); }
-.tmpl-gauge-info { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+/* Template matched row */
+.tmpl-matched-row { display: flex; align-items: center; gap: 8px; }
 .tmpl-matched { font-size: 12px; color: var(--text-dim); font-weight: 600; font-variant-numeric: tabular-nums; }
-.tmpl-remaining { font-size: 13px; font-weight: 800; color: var(--orange); animation: remainPulse 2s ease infinite; }
-.tmpl-remaining.urgent { color: var(--red); animation: remainPulse 1s ease infinite; }
 @keyframes remainPulse { 0%,100% { opacity: 1; } 50% { opacity: 0.6; } }
 .tmpl-complete-badge { font-size: 12px; font-weight: 800; color: var(--green); background: rgba(0,210,160,0.15); padding: 2px 10px; border-radius: 6px; }
 .timer-opt { background: rgba(162,155,254,0.15); color: var(--purple); }
-
-/* Countdown */
-.tmpl-countdown { flex-shrink: 0; }
-.countdown-time { font-size: 14px; font-weight: 800; font-family: 'SF Mono', 'Fira Code', monospace; color: var(--text); padding: 3px 10px; border-radius: 6px; background: rgba(255,255,255,0.06); font-variant-numeric: tabular-nums; }
-.countdown-time.warning { color: var(--orange); background: rgba(255,159,67,0.12); }
-.countdown-time.critical { color: var(--red); background: rgba(255,107,107,0.15); animation: countdownBlink 1s ease infinite; }
 @keyframes countdownBlink { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
-.countdown-expired { font-size: 12px; font-weight: 700; color: var(--red); background: rgba(255,107,107,0.12); padding: 3px 10px; border-radius: 6px; }
 
 @media (max-width: 768px) {
   .stats-row { grid-template-columns: repeat(3, 1fr); }
