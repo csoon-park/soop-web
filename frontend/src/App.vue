@@ -80,18 +80,34 @@
     </div>
 
     <!-- Global Gauge & Countdown -->
-    <section v-if="templates.length > 0" class="global-gauge-card">
+    <section class="global-gauge-card">
       <div class="global-gauge-top">
         <div class="global-gauge-left">
           <div class="global-remaining-wrap">
             <span class="global-icon">🔥</span>
-            <span :class="['global-remaining-num', totalRemaining <= 10 && totalRemaining > 0 && 'urgent', totalCompleted && 'done']">
-              {{ totalCompleted ? '달성!' : totalRemaining }}
-            </span>
-            <span v-if="!totalCompleted" class="global-remaining-label">개 남음</span>
+            <template v-if="totalCompleted">
+              <span class="global-remaining-num done">달성!</span>
+            </template>
+            <template v-else>
+              <span :class="['global-remaining-num', totalRemaining <= 10 && totalRemaining > 0 && 'urgent']">
+                {{ totalRemaining }}
+              </span>
+              <span class="global-remaining-label">개 남음</span>
+            </template>
           </div>
           <div class="global-sub">
-            {{ totalMatched }}<span class="global-sub-dim"> / {{ totalTarget }}</span>
+            {{ totalMatched }}<span class="global-sub-dim"> / </span>
+            <span v-if="!globalTargetEditing" class="global-target-val" @click="globalTargetEditing = true" title="클릭하여 목표 수정">{{ globalTargetCount }}</span>
+            <input
+              v-else
+              type="number"
+              v-model.number="globalTargetCount"
+              class="global-target-input"
+              min="1"
+              @blur="globalTargetEditing = false"
+              @keyup.enter="globalTargetEditing = false"
+              autofocus
+            />
           </div>
         </div>
         <div class="global-gauge-right">
@@ -214,10 +230,6 @@
             </div>
           </div>
 
-          <div class="tmpl-matched-row">
-            <span class="tmpl-matched">{{ templateMatchedCount(t.name) }}/{{ t.count }}</span>
-            <span v-if="templateCompleted(t)" class="tmpl-complete-badge">달성!</span>
-          </div>
         </div>
       </div>
     </section>
@@ -514,13 +526,13 @@ let nowTimer = null
 const globalTimerMinutes = ref(30)
 const globalTimerStartedAt = ref(null)
 const globalTimerRunning = ref(false)
-const globalTimerEditing = ref(false)
+const globalTargetCount = ref(100)
+const globalTargetEditing = ref(false)
 
-const totalTarget = computed(() => templates.value.filter(t => t.active).reduce((sum, t) => sum + t.count, 0))
-const totalMatched = computed(() => templates.value.filter(t => t.active).reduce((sum, t) => sum + templateMatchedCount(t.name), 0))
-const totalRemaining = computed(() => Math.max(0, totalTarget.value - totalMatched.value))
-const totalProgress = computed(() => totalTarget.value > 0 ? Math.min(100, (totalMatched.value / totalTarget.value) * 100) : 0)
-const totalCompleted = computed(() => totalTarget.value > 0 && totalMatched.value >= totalTarget.value)
+const totalMatched = computed(() => results.value.length)
+const totalRemaining = computed(() => Math.max(0, globalTargetCount.value - totalMatched.value))
+const totalProgress = computed(() => globalTargetCount.value > 0 ? Math.min(100, (totalMatched.value / globalTargetCount.value) * 100) : 0)
+const totalCompleted = computed(() => globalTargetCount.value > 0 && totalMatched.value >= globalTargetCount.value)
 
 const globalRemainingSeconds = computed(() => {
   if (!globalTimerStartedAt.value || !globalTimerRunning.value) return -1
@@ -1273,8 +1285,11 @@ body::before {
 .global-remaining-num.urgent { color: var(--red); animation: remainPulse 1s ease infinite; }
 .global-remaining-num.done { color: var(--green); animation: none; font-size: 28px; }
 .global-remaining-label { font-size: 16px; font-weight: 700; color: var(--text-dim); }
-.global-sub { font-size: 13px; color: var(--text-dim); font-weight: 600; font-variant-numeric: tabular-nums; }
+.global-sub { font-size: 13px; color: var(--text-dim); font-weight: 600; font-variant-numeric: tabular-nums; display: flex; align-items: center; gap: 0; }
 .global-sub-dim { color: #555; }
+.global-target-val { color: var(--accent); cursor: pointer; border-bottom: 1px dashed var(--accent); padding: 0 2px; transition: color 0.15s; }
+.global-target-val:hover { color: var(--purple); }
+.global-target-input { width: 60px; background: var(--surface); border: 1px solid var(--accent); border-radius: 6px; padding: 2px 6px; color: var(--text); font-size: 13px; font-weight: 700; text-align: center; outline: none; font-variant-numeric: tabular-nums; }
 
 .global-gauge-right { display: flex; align-items: center; }
 .global-timer-wrap { display: flex; align-items: center; gap: 8px; }
@@ -1360,12 +1375,8 @@ body::before {
 .global-timer-fill.warning { background: var(--orange); }
 .global-timer-fill.critical { background: var(--red); }
 
-/* Template matched row */
-.tmpl-matched-row { display: flex; align-items: center; gap: 8px; }
-.tmpl-matched { font-size: 12px; color: var(--text-dim); font-weight: 600; font-variant-numeric: tabular-nums; }
-@keyframes remainPulse { 0%,100% { opacity: 1; } 50% { opacity: 0.6; } }
-.tmpl-complete-badge { font-size: 12px; font-weight: 800; color: var(--green); background: rgba(0,210,160,0.15); padding: 2px 10px; border-radius: 6px; }
 .timer-opt { background: rgba(162,155,254,0.15); color: var(--purple); }
+@keyframes remainPulse { 0%,100% { opacity: 1; } 50% { opacity: 0.6; } }
 @keyframes countdownBlink { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
 
 @media (max-width: 768px) {
