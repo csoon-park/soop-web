@@ -109,6 +109,7 @@
               autofocus
             />
           </div>
+          <button class="global-timer-btn reset" @click="resetGauge" title="게이지 초기화">↺</button>
         </div>
         <div class="global-gauge-right">
           <div class="global-timer-wrap">
@@ -201,6 +202,12 @@
           <label class="chk"><input type="checkbox" v-model="newTmpl.collect_message" /> 메시지 수집</label>
         </div>
         <button class="btn-add" @click="addTemplate" :disabled="!newTmpl.name || !newTmpl.count">+ 등록</button>
+      </div>
+
+      <div class="notice-box">
+        <p>• 소원권은 현금이나 상품 등 금전적·물질적 제공은 어려운 점 양해 부탁드립니다.</p>
+        <p>• 요청 내용은 상식적인 범위와 실행 가능한 선에서 진행됩니다.</p>
+        <p>• 일정은 서로의 상황을 고려하여 최대한 조율해보겠습니다.</p>
       </div>
 
       <!-- Template list -->
@@ -528,10 +535,16 @@ const globalTimerRunning = ref(false)
 const globalTargetCount = ref(30000)
 const globalTargetEditing = ref(false)
 
-const totalMatched = computed(() => results.value.reduce((sum, r) => sum + (r.count || 0), 0))
+const gaugeOffset = ref(0)
+const totalMatchedRaw = computed(() => results.value.reduce((sum, r) => sum + (r.count || 0), 0))
+const totalMatched = computed(() => Math.max(0, totalMatchedRaw.value - gaugeOffset.value))
 const totalRemaining = computed(() => Math.max(0, globalTargetCount.value - totalMatched.value))
 const totalProgress = computed(() => globalTargetCount.value > 0 ? Math.min(100, (totalMatched.value / globalTargetCount.value) * 100) : 0)
 const totalCompleted = computed(() => globalTargetCount.value > 0 && totalMatched.value >= globalTargetCount.value)
+
+function resetGauge() {
+  gaugeOffset.value = totalMatchedRaw.value
+}
 
 const globalRemainingSeconds = computed(() => {
   if (!globalTimerStartedAt.value || !globalTimerRunning.value) return -1
@@ -1025,6 +1038,8 @@ body::before {
 
 /* Template Form */
 .template-form { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+.notice-box { background: rgba(255,255,255,0.03); border: 1px solid var(--card-border); border-radius: 10px; padding: 12px 16px; margin-bottom: 16px; }
+.notice-box p { margin: 0; padding: 2px 0; font-size: 12px; color: var(--text-dim); line-height: 1.6; }
 .form-group { display: flex; flex-direction: column; gap: 4px; }
 .form-group label { font-size: 11px; color: var(--text-dim); font-weight: 500; }
 .input-sm { background: var(--surface); border: 1px solid var(--card-border); border-radius: 8px; padding: 7px 10px; color: var(--text); font-size: 13px; outline: none; }
